@@ -1,5 +1,6 @@
 package com.sentinelai.analyzer.service;
 
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
@@ -17,6 +18,7 @@ public class AIAnalysisService {
     private final ChatClient chatClient;
 
     @Cacheable(value = "aiAnalysisCache", key = "#root.target.hashStackTrace(#stackTrace)")
+    @CircuitBreaker(name = "groqApi", fallbackMethod = "fallbackAnalysis")
     public String analyzeException(String exceptionClass,
                                    String message,
                                    String stackTrace) {
@@ -47,6 +49,20 @@ public class AIAnalysisService {
 
         log.info("Groq analysis complete: {}", response);
         return response;
+    }
+
+    public String fallbackAnalysis(String exceptionClass, String message,
+                                   String stackTrace, Throwable t) {
+        log.error("Circuit breaker OPEN — Groq API unavailable. Reason: {}", t.getMessage());
+
+        return """
+                {
+                    "rootCause": "AI analysis unavailable — Groq API is currently unreachable",
+                    "affectedComponent": "%s",
+                    "suggestedFix": "Manual review required. AI service will retry automatically",
+                    "severity": "UNKNOWN"
+                }
+                """.formatted(exceptionClass);
     }
 
     public String hashStackTrace(String stackTrace) {

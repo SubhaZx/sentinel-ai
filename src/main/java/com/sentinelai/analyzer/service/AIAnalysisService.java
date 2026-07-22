@@ -3,7 +3,11 @@ package com.sentinelai.analyzer.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
+
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 
 @Service
 @Slf4j
@@ -12,10 +16,12 @@ public class AIAnalysisService {
 
     private final ChatClient chatClient;
 
+    @Cacheable(value = "aiAnalysisCache", key = "#root.target.hashStackTrace(#stackTrace)")
     public String analyzeException(String exceptionClass,
                                    String message,
                                    String stackTrace) {
-        log.info("Sending exception to Groq for analysis...");
+        log.info("Cache MISS — sending exception to Groq for analysis...");
+
         String prompt = """
                 You are a Senior Java Developer and SRE expert.
                 Analyze this Java exception and respond with ONLY a JSON object.
@@ -41,5 +47,21 @@ public class AIAnalysisService {
 
         log.info("Groq analysis complete: {}", response);
         return response;
+    }
+
+    public String hashStackTrace(String stackTrace) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(stackTrace.getBytes());
+            StringBuilder hexString = new StringBuilder();
+            for (byte b : hash) {
+                String hex = Integer.toHexString(0xff & b);
+                if (hex.length() == 1) hexString.append('0');
+                hexString.append(hex);
+            }
+            return hexString.toString();
+        } catch (NoSuchAlgorithmException e) {
+            return String.valueOf(stackTrace.hashCode());
+        }
     }
 }

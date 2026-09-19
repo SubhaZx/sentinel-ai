@@ -1,6 +1,7 @@
 package com.sentinelai.analyzer.service;
 
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
+import io.github.resilience4j.retry.annotation.Retry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
@@ -17,8 +18,9 @@ public class AIAnalysisService {
 
     private final ChatClient chatClient;
 
-    @Cacheable(value = "aiAnalysisCache", key = "#root.target.hashStackTrace(#stackTrace)")
-    @CircuitBreaker(name = "groqApi", fallbackMethod = "fallbackAnalysis")
+    @Cacheable(value = "aiAnalysisCache", key = "#root.target.hashStackTrace(#stackTrace)", unless = "#result.contains('AI analysis unavailable')")
+    @Retry(name = "groqApi", fallbackMethod = "fallbackAnalysis")
+    @CircuitBreaker(name = "groqApi")
     public String analyzeException(String exceptionClass,
                                    String message,
                                    String stackTrace) {

@@ -7,4 +7,6 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface IncidentRepository
         extends JpaRepository<IncidentReport, Long> {
+
+    boolean existsByCorrelationId(String correlationId);
 }

@@ -26,6 +26,12 @@ public class KafkaConsumerService {
         log.info("Received ErrorEvent from Kafka: {}",
                 errorEvent.getCorrelationId());
 
+        if (incidentRepository.existsByCorrelationId(errorEvent.getCorrelationId())) {
+            log.warn("Duplicate event detected, skipping: {}",
+                    errorEvent.getCorrelationId());
+            return;
+        }
+
         String aiAnalysis = aiAnalysisService.analyzeException(
                 errorEvent.getExceptionClass(),
                 errorEvent.getMessage(),

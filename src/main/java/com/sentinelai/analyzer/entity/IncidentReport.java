@@ -19,7 +19,9 @@ public class IncidentReport {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(unique = true)
     private String correlationId;
+
     private String exceptionClass;
     private String message;
 

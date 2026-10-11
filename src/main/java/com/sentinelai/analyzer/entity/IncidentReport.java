@@ -19,10 +19,12 @@ public class IncidentReport {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(unique = true)
+    @Column(nullable = false, unique = true)
     private String correlationId;
 
     private String exceptionClass;
+
+    @Column(columnDefinition = "TEXT")
     private String message;
 
     @Column(columnDefinition = "TEXT")

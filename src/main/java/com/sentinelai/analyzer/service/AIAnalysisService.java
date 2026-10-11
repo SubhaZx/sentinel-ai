@@ -8,6 +8,7 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
+import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
@@ -18,7 +19,7 @@ public class AIAnalysisService {
 
     private final ChatClient chatClient;
 
-    @Cacheable(value = "aiAnalysisCache", key = "#root.target.hashStackTrace(#stackTrace)", unless = "#result.contains('AI analysis unavailable')")
+    @Cacheable(value = "aiAnalysisCache", key = "#root.target.hashInput(#exceptionClass, #message, #stackTrace)", unless = "#result.contains('AI analysis unavailable')")
     @Retry(name = "groqApi", fallbackMethod = "fallbackAnalysis")
     @CircuitBreaker(name = "groqApi")
     public String analyzeException(String exceptionClass,
@@ -67,10 +68,13 @@ public class AIAnalysisService {
                 """.formatted(exceptionClass);
     }
 
-    public String hashStackTrace(String stackTrace) {
+    public String hashInput(String exceptionClass, String message, String stackTrace) {
+        String combined = (exceptionClass == null ? "" : exceptionClass) + "|"
+                + (message == null ? "" : message) + "|"
+                + (stackTrace == null ? "" : stackTrace);
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] hash = digest.digest(stackTrace.getBytes());
+            byte[] hash = digest.digest(combined.getBytes(StandardCharsets.UTF_8));
             StringBuilder hexString = new StringBuilder();
             for (byte b : hash) {
                 String hex = Integer.toHexString(0xff & b);
@@ -79,7 +83,7 @@ public class AIAnalysisService {
             }
             return hexString.toString();
         } catch (NoSuchAlgorithmException e) {
-            return String.valueOf(stackTrace.hashCode());
+            return String.valueOf(combined.hashCode());
         }
     }
 }

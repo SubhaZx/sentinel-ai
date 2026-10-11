@@ -4,6 +4,8 @@ import com.sentinelai.analyzer.entity.User;
 import com.sentinelai.analyzer.repository.UserRepository;
 import com.sentinelai.analyzer.security.JwtService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -24,30 +26,30 @@ public class AuthController {
     private final JwtService jwtService;
 
     @PostMapping("/login")
-    public Map<String, String> login(@RequestBody Map<String, String> loginRequest) {
+    public ResponseEntity<Map<String, String>> login(@RequestBody Map<String, String> loginRequest) {
         String username = loginRequest.get("username");
         String password = loginRequest.get("password");
 
+        // #6: 400 Bad Request — missing/blank fields (also avoids BCrypt null crash)
+        if (username == null || username.isBlank() || password == null || password.isBlank()) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "Username and password are required"));
+        }
+
         Optional<User> userOpt = userRepository.findByUsername(username);
 
-        Map<String, String> response = new HashMap<>();
-
-        if (userOpt.isEmpty()) {
-            response.put("error", "User not found");
-            return response;
+        // #13 + enumeration: generic 401 for both "no user" and "wrong password"
+        if (userOpt.isEmpty() || !passwordEncoder.matches(password, userOpt.get().getPassword())) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("error", "Invalid username or password"));
         }
 
         User user = userOpt.get();
-
-        if (!passwordEncoder.matches(password, user.getPassword())) {
-            response.put("error", "Invalid password");
-            return response;
-        }
-
         String token = jwtService.generateToken(user.getUsername(), user.getRole());
+
+        Map<String, String> response = new HashMap<>();
         response.put("token", token);
         response.put("role", user.getRole());
-
-        return response;
+        return ResponseEntity.ok(response);
     }
 }

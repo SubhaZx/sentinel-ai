@@ -7,10 +7,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
-import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/incidents")
@@ -29,24 +27,26 @@ public class IncidentController {
     }
 
     @GetMapping("/{id}")
-    public IncidentReport getIncidentById(@PathVariable Long id) {
-        Optional<IncidentReport> incident = incidentRepository.findById(id);
-        return incident.orElse(null);
+    public ResponseEntity<IncidentReport> getIncidentById(@PathVariable Long id) {
+        return incidentRepository.findById(id)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
     }
 
     @GetMapping("/correlation/{correlationId}")
-    public IncidentReport getByCorrelationId(@PathVariable String correlationId) {
-        List<IncidentReport> all = incidentRepository.findAll();
-        return all.stream()
-                .filter(i -> i.getCorrelationId().equals(correlationId))
-                .findFirst()
-                .orElse(null);
+    public ResponseEntity<IncidentReport> getByCorrelationId(@PathVariable String correlationId) {
+        return incidentRepository.findByCorrelationId(correlationId)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
     }
 
     @DeleteMapping("/{id}")
-    public String deleteIncident(@PathVariable Long id) {
+    public ResponseEntity<Void> deleteIncident(@PathVariable Long id) {
+        if (!incidentRepository.existsById(id)) {
+            return ResponseEntity.notFound().build();
+        }
         incidentRepository.deleteById(id);
-        return "Incident deleted: " + id;
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/count")

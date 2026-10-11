@@ -9,8 +9,9 @@ import org.aspectj.lang.annotation.AfterThrowing;
 import org.aspectj.lang.annotation.Aspect;
 import org.springframework.stereotype.Component;
 
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.time.LocalDateTime;
-import java.util.Arrays;
 import java.util.UUID;
 
 @Aspect
@@ -22,7 +23,9 @@ public class GlobalExceptionAspect {
     private final KafkaProducerService kafkaProducerService;
 
     @AfterThrowing(
-            pointcut = "execution(* com.sentinelai.producer..*(..))",
+            pointcut = "execution(* com.sentinelai.producer..*(..)) " +
+                    "&& !within(com.sentinelai.producer.kafka..*) " +
+                    "&& !within(com.sentinelai.producer.aspect..*)",
             throwing = "exception"
     )
     public void captureException(JoinPoint joinPoint, Exception exception) {
@@ -31,7 +34,7 @@ public class GlobalExceptionAspect {
                 .correlationId(UUID.randomUUID().toString())
                 .exceptionClass(exception.getClass().getName())
                 .message(exception.getMessage())
-                .stackTrace(Arrays.toString(exception.getStackTrace()))
+                .stackTrace(getFullStackTrace(exception))
                 .serviceName("producer-service")
                 .timestamp(LocalDateTime.now())
                 .build();
@@ -40,5 +43,11 @@ public class GlobalExceptionAspect {
                 errorEvent.getCorrelationId());
 
         kafkaProducerService.publishErrorEvent(errorEvent);
+    }
+
+    private String getFullStackTrace(Throwable exception) {
+        StringWriter sw = new StringWriter();
+        exception.printStackTrace(new PrintWriter(sw));
+        return sw.toString();
     }
 }
